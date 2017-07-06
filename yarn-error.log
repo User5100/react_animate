@@ -1,0 +1,35 @@
+Arguments: 
+  /usr/local/bin/node /Users/Thai/.yarn/bin/yarn.js add react react-dom
+
+PATH: 
+  /Library/Frameworks/Python.framework/Versions/3.6/bin:/Users/Thai/.yarn/bin:/Library/Frameworks/Python.framework/Versions/3.5/bin:/Users/Thai/.rbenv/shims:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/opt/X11/bin:/Library/Frameworks/Mono.framework/Versions/Current/Commands:/usr/local/Bluemix/bin
+
+Yarn version: 
+  0.23.3
+
+Node version: 
+  6.10.3
+
+Platform: 
+  darwin x64
+
+npm manifest: 
+  {
+    "name": "react_animate",
+    "version": "0.1.0",
+    "description": "Snap to grid click to scroll a sub div and replace word",
+    "main": "index.js",
+    "author": "Thai Mao",
+    "license": "MIT"
+  }
+
+yarn manifest: 
+  No manifest
+
+Lockfile: 
+  No lockfile
+
+Trace: 
+  Error: getaddrinfo ENOTFOUND registry.yarnpkg.com registry.yarnpkg.com:443
+      at errnoException (dns.js:28:10)
+      at GetAddrInfoReqWrap.onlookup [as oncomplete] (dns.js:76:26)
