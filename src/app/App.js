@@ -24,27 +24,65 @@ class App extends Component {
 			isWordHighlighted: false,
 			rangeHighlighted: { left: 0, top: 0, width: 0, height: 0 },
 			wordHighlightedPosition: { left: 0, top: 0 },
-			isHighlighterEnabled: true
+			isHighlighterEnabled: true,
+			words: ['Hi', 'my', 'name', 'is'],
+      inputText: '',
+      showInput: false,
+      indexOfWordBeforeInsert: 0,
+      highlightElementCoverage: []
 		}
 
 		this.isWordCoveredByHighlightedRange = this.isWordCoveredByHighlightedRange.bind(this)
 		this.getMousePosition = this.getMousePosition.bind(this)
 		this.dragAndDropAnItem = this.dragAndDropAnItem.bind(this)
+    this.handleTextInputChange = this.handleTextInputChange.bind(this)
+    this.handleTextInputOnEnter = this.handleTextInputOnEnter.bind(this)
+    this.handleDisplayInputBox = this.handleDisplayInputBox.bind(this)
 	}
 
-	isWordCoveredByHighlightedRange() {
+  handleTextInputChange(event) {
+    let { value } = event.target
+    this.setState({ inputText: value })
+  }
+
+  handleDisplayInputBox(index) {
+    
+    this.setState({ showInput: true, indexOfWordBeforeInsert: index }, () => {
+      //Callback that automatically sets the focus on input
+      //so user can type right away wihtout needing to click
+      //on input box
+      this.input.focus()
+    })
+  }
+
+  handleTextInputOnEnter(event) {
+    if(event.key === 'Enter') { //Only perform if onEnter
+      let words = this.state.words
+
+      //Insert new word into the existing array of words
+      Promise.resolve([...words.slice(0, this.state.indexOfWordBeforeInsert + 1),
+                       this.state.inputText,
+                       ...words.slice(this.state.indexOfWordBeforeInsert + 1, ...words.length)])
+             .then((_words) => {
+                console.log(_words)
+                this.setState({ words: _words, inputText: '', showInput: false })
+             })    
+    }
+  }
+
+	isWordCoveredByHighlightedRange(child) {
 		//TODO - Calculate area covered by rangeHighlighted
 			let { top, left, bottom, right, width } = this.rangeHighlighter.getBoundingClientRect()
-
 			
-			if((top <= this.ballOne.getBoundingClientRect().top &&
-				  left <= this.ballOne.getBoundingClientRect().left) ||
-				 (top <= this.ballOne.getBoundingClientRect().bottom &&
-				 	left <= this.ballOne.getBoundingClientRect().right)) {
+			if((top - bottom) <= (child.getBoundingClientRect().top - child.getBoundingClientRect().bottom ||
+				 (left - right) <= (child.getBoundingClientRect().left - child.getBoundingClientRect().right))) {
 
 				this.setState({ isWordHighlighted: true })
+        console.log('Highlighter: ',this.rangeHighlighter.getBoundingClientRect(), 'Child: ', child.innerHTML, child.getBoundingClientRect())
+        return true
 			} else {
 				this.setState({ isWordHighlighted: false })
+        return false
 			}
 	}
 
@@ -93,7 +131,16 @@ class App extends Component {
 		.subscribe(rangeHighlighted => {
 			this.setState({ rangeHighlighted: rangeHighlighted })
 
-			this.isWordCoveredByHighlightedRange()
+      //Access word elements
+      //this.wordsContainer.map(item => {
+      //  console.log(item)
+      //})
+
+      let highlightElementCoverage = Array.from(this.wordsContainer.childNodes).map(child => {
+        return this.isWordCoveredByHighlightedRange(child)
+      })
+
+      this.setState({ highlightElementCoverage: highlightElementCoverage })	
 			
 		})
 
@@ -170,15 +217,33 @@ class App extends Component {
 		//End Snap to grid
 
 		//Start drag drop multiple items
+		this.dragAndDropAnItem()	
+		//End drag drop multiple items
 
-		this.dragAndDropAnItem()						
 	}
 
 	render() {
 
+		let words = this.state.words
+    let input
+
+    input = (index) => {
+      if(this.state.showInput && index == this.state.indexOfWordBeforeInsert) { //show inputBox insert 
+      return (
+        <input
+          className='input-box'
+          style={styles.inputBox}
+          ref={input => this.input = input}
+          value={this.state.inputText}
+          onChange={this.handleTextInputChange}
+          onKeyPress={this.handleTextInputOnEnter}
+          type='text' /> 
+        )
+      }
+    }
+    
 		return(
 			<div>
-
 				<div
 					ref={word => this.word = word}
 					style={Object.assign({}, { top: `${this.state.y}px` }, styles.word)} >
@@ -200,6 +265,27 @@ class App extends Component {
 						ref={rangeHighlighter => this.rangeHighlighter = rangeHighlighter} 
 						style={Object.assign({}, this.state.rangeHighlighted, styles.rangeHighlighter)}>
 					</svg>
+          <div
+            className='words-container'
+            ref={wordsContainer => this.wordsContainer = wordsContainer}
+            style={styles.wordsContainer}>
+            {words.map((word, i) => (<div
+                                      key={i}
+                                      ref={wordSpan => this.wordSpan = wordSpan}
+                                      style={styles.wordContainer}> 
+                                      <span    
+                                      className='word'
+                                      style={Object.assign({}, styles.word, this.state.highlightElementCoverage[i]? this.state.wordHighlightedPosition : {})}
+                                      >{word} </span>
+                                      <span
+                                        onClick={() => this.handleDisplayInputBox(i)}
+                                        style={Object.assign({}, styles.addText)}>+</span>
+                                        {input(i)}
+                                     </div>))}
+            
+
+
+          </div>
 				</div>
 
 			</div>
@@ -213,10 +299,13 @@ const styles = {
 	word: {
 		borderRadius: '40%',
 		background: 'seagreen',
-		width: '100px',
-		height: '50px',
-		position: 'absolute',
-		zIndex: 2
+    maxWidth: '200px',
+		height: '20px',
+		position: 'relative',
+		zIndex: 2,
+    marginLeft: '20px',
+    color: '#FFF',
+    fontSize: '22px'
 	},
 	ballOne: {
 		top: '200px'
@@ -226,7 +315,28 @@ const styles = {
 	},
 	rangeHighlighter: {
 		position: 'absolute',
-		background: 'peru',
+    border: '1px solid black',
+		background: 'transparent',
 		zIndex: 2
-	}
+	},
+  wordsContainer: {
+    zIndex: 3,
+    position: 'absolute',
+    top: '400px',
+    left: '20px',
+    userSelect: 'none'
+  },
+  wordContainer: {
+    display: 'inline'
+  },
+  addText: {
+    backgroundColor: 'peru',
+    margin: '0px 18px 0px 18px'
+  },
+  inputBox: {
+    backgroundColor: 'seagreen',
+    padding: '8px',
+    border: 'none',
+    color: '#FFF'
+  }
 }

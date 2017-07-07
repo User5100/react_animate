@@ -3,6 +3,7 @@
 	width: 500px;
 	height: 500px;
 	background-color: white;
+  border: 1px solid black;
 }
 
 .ball {
@@ -15,4 +16,12 @@
 
 path {
 	z-index: 4;
+}
+
+.word:hover {
+  cursor: pointer;
+}
+
+.input-box {
+  outline: none;
 }
