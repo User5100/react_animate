@@ -73,12 +73,23 @@ class App extends Component {
 	isWordCoveredByHighlightedRange(child) {
 		//TODO - Calculate area covered by rangeHighlighted
 			let { top, left, bottom, right, width } = this.rangeHighlighter.getBoundingClientRect()
-			
-			if((top - bottom) <= (child.getBoundingClientRect().top - child.getBoundingClientRect().bottom ||
-				 (left - right) <= (child.getBoundingClientRect().left - child.getBoundingClientRect().right))) {
 
+			let check = { top: top <= child.getBoundingClientRect().bottom,
+			        			left: left <= child.getBoundingClientRect().right,
+			        	  	right: right >= child.getBoundingClientRect().left,
+			        	  	bottom: bottom >= child.getBoundingClientRect().top
+			        		}	
+
+			//console.log(child, check)
+			
+			if((top <= child.getBoundingClientRect().bottom) &&
+				 (left <= child.getBoundingClientRect().right) &&
+				 (right >= child.getBoundingClientRect().left) &&
+				 (bottom >= child.getBoundingClientRect().top)) {
+				console.log('cool', child)
 				this.setState({ isWordHighlighted: true })
-        console.log('Highlighter: ',this.rangeHighlighter.getBoundingClientRect(), 'Child: ', child.innerHTML, child.getBoundingClientRect())
+        //console.log('Highlighter: ',this.rangeHighlighter.getBoundingClientRect(), 'Child: ', child.innerHTML, child.getBoundingClientRect())
+
         return true
 			} else {
 				this.setState({ isWordHighlighted: false })
@@ -156,7 +167,7 @@ class App extends Component {
 		//Handle dragging of highlighted word
 
 		Observable.fromEvent(this.rangeHighlighter, 'mousedown')
-							.filter(() => !this.state.isHighlighterEnabled && this.state.isWordHighlighted)
+							.filter(() => !this.state.isHighlighterEnabled)
 							.switchMap(() => this.move$.takeUntil(this.mouseUp$))
 							.map(mouseEvent => {
 								return this.getMousePosition(mouseEvent, left, top)
@@ -248,6 +259,8 @@ class App extends Component {
 					ref={word => this.word = word}
 					style={Object.assign({}, { top: `${this.state.y}px` }, styles.word)} >
 				</div>
+				<pre><code>{JSON.stringify(this.state.isWordHighlighted, null, 4)}</code></pre>
+
 
 				<div
 					className='balls-container'
