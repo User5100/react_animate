@@ -23,9 +23,45 @@ class App extends Component {
 			y: 100,
 			isWordHighlighted: false,
 			rangeHighlighted: { left: 0, top: 0, width: 0, height: 0 },
-			wordHighlightedPosition: { left: 0, top: 0 },
+			wordHighlightedPositions: [],
 			isHighlighterEnabled: true,
-			words: ['Hi', 'my', 'name', 'is'],
+      position: null,
+			srts: [
+				{
+					words: [{ word: 'Hi',
+									speakerNo: 1,
+									timestamp: 1 }, 
+									{ word: 'my',
+										speakerNo: 1,
+										timestamp: 2 }, 
+									{ word: 'name',
+										speakerNo: 1,
+										timestamp: 3 }, 
+									{ word: 'is',
+										speakerNo: 1,
+										timestamp: 4 },
+									{ word: 'Thai',
+										speakerNo: 1,
+										timestamp: 5 }]
+				},
+				{
+					words: [{ word: 'Good',
+									speakerNo: 2,
+									timestamp: 6 }, 
+									{ word: 'morning',
+										speakerNo: 2,
+										timestamp: 7 }, 
+									{ word: 'how',
+										speakerNo: 2,
+										timestamp: 8 }, 
+									{ word: 'are',
+										speakerNo: 2,
+										timestamp: 9 },
+									{ word: 'you?',
+										speakerNo: 2,
+										timestamp: 10 }]
+				}
+			],
       inputText: '',
       showInput: false,
       indexOfWordBeforeInsert: 0,
@@ -38,6 +74,8 @@ class App extends Component {
     this.handleTextInputChange = this.handleTextInputChange.bind(this)
     this.handleTextInputOnEnter = this.handleTextInputOnEnter.bind(this)
     this.handleDisplayInputBox = this.handleDisplayInputBox.bind(this)
+    this.calculateInitialWordHighlightedPositions = this.calculateInitialWordHighlightedPositions.bind(this)
+    this.calculateDiarizationChanges = this.calculateDiarizationChanges.bind(this)
 	}
 
   handleTextInputChange(event) {
@@ -56,16 +94,41 @@ class App extends Component {
   }
 
   handleTextInputOnEnter(event) {
+
+    console.log('index: ', this.state.indexOfWordBeforeInsert)
+    
     if(event.key === 'Enter') { //Only perform if onEnter
-      let words = this.state.words
+
+      let words = []
+
+      this.state.srts.map(segment => {
+        words = [...words, ...segment.words]
+      })
 
       //Insert new word into the existing array of words
       Promise.resolve([...words.slice(0, this.state.indexOfWordBeforeInsert + 1),
-                       this.state.inputText,
+                       { word: this.state.inputText, timestamp: null, speakerNo: words[this.state.indexOfWordBeforeInsert].speakerNo },
                        ...words.slice(this.state.indexOfWordBeforeInsert + 1, ...words.length)])
              .then((_words) => {
-                console.log(_words)
-                this.setState({ words: _words, inputText: '', showInput: false })
+
+                let revisedSegments = []
+                let currentSpeakerNo
+
+                _words.map((wordObj, i) => {
+                  
+                  if(!revisedSegments[wordObj.speakerNo -1]) { //If segment doesn't exist push segment along with first word
+                    
+                    revisedSegments.push({
+                      words: [wordObj]
+                    })
+                  } else { //If segment does exist then push worObj into it's word array
+                    revisedSegments[wordObj.speakerNo - 1].words.push(wordObj)
+                  }
+                })
+
+                console.log(revisedSegments)
+
+                this.setState({ srts: revisedSegments, inputText: '', showInput: false })
              })    
     }
   }
@@ -86,13 +149,14 @@ class App extends Component {
 				 (left <= child.getBoundingClientRect().right) &&
 				 (right >= child.getBoundingClientRect().left) &&
 				 (bottom >= child.getBoundingClientRect().top)) {
-				console.log('cool', child)
-				this.setState({ isWordHighlighted: true })
-        //console.log('Highlighter: ',this.rangeHighlighter.getBoundingClientRect(), 'Child: ', child.innerHTML, child.getBoundingClientRect())
+				  
+          //console.log('child', child)
+				  //this.setState({ isWordHighlighted: true })
+          //console.log('Highlighter: ',this.rangeHighlighter.getBoundingClientRect(), 'Child: ', child.innerHTML, child.getBoundingClientRect())
 
         return true
 			} else {
-				this.setState({ isWordHighlighted: false })
+				//this.setState({ isWordHighlighted: false })
         return false
 			}
 	}
@@ -142,11 +206,6 @@ class App extends Component {
 		.subscribe(rangeHighlighted => {
 			this.setState({ rangeHighlighted: rangeHighlighted })
 
-      //Access word elements
-      //this.wordsContainer.map(item => {
-      //  console.log(item)
-      //})
-
       let highlightElementCoverage = Array.from(this.wordsContainer.childNodes).map(child => {
         return this.isWordCoveredByHighlightedRange(child)
       })
@@ -165,7 +224,6 @@ class App extends Component {
 							})
 
 		//Handle dragging of highlighted word
-
 		Observable.fromEvent(this.rangeHighlighter, 'mousedown')
 							.filter(() => !this.state.isHighlighterEnabled)
 							.switchMap(() => this.move$.takeUntil(this.mouseUp$))
@@ -173,10 +231,28 @@ class App extends Component {
 								return this.getMousePosition(mouseEvent, left, top)
 						  })
 							.subscribe(position => {
-								console.log('Handle dragging of highlighted word')
+								console.log('Handle dragging of highlighted word', this.state.wordHighlightedPositions)
+
+                this.setState({ position: { top: position.x, 
+                                            left: position.y - this.state.rangeHighlighted.top } })
+
+                let revisedWordHighlightedPositions
+
+                revisedWordHighlightedPositions = this.state.wordHighlightedPositions.map((prevWordPosition, i) => {
+
+                  if(this.state.highlightElementCoverage[i]) {
+                    return { left: prevWordPosition.left + position.x - this.state.rangeHighlighted.left, 
+                             top: prevWordPosition.top + position.y - this.state.rangeHighlighted.top }
+                  } else {
+                    return prevWordPosition
+                  }
+                  
+                })
+
+                //Used revisedWordHighlightedPositions to calculate diarization changes made
+                this.calculateDiarizationChanges(revisedWordHighlightedPositions);
 
 								this.setState((prevState) => {
-
 									return {
 										rangeHighlighted: { 
 											left: position.x, 
@@ -184,14 +260,122 @@ class App extends Component {
 											width: prevState.rangeHighlighted.width, 
 											height: prevState.rangeHighlighted.height	 
 										},
-										wordHighlightedPosition: {
-											left: prevState.wordHighlightedPosition.left + position.x - prevState.rangeHighlighted.left, 
-											top: prevState.wordHighlightedPosition.top + position.y - prevState.rangeHighlighted.top, 																																
-										}
+										wordHighlightedPositions: revisedWordHighlightedPositions
 									}
 								})
 							})
+      //END Handle dragging of highlighted word
+
+      //Handle deletion of highlighted words
+      this.remove$ = Observable.fromEvent(document, 'keydown')
+                               .filter(key => {
+                                  if(key.code === 'Backspace' || key.code === 'Delete') {
+                                    return 1
+                                  } else {
+                                    return 0
+                                  }
+                               })
+
+      this.remove$.subscribe(() => {
+        let revisedSegments = []
+        let currentSpeakerNo //store local state of current speaker to reconstruct srts data structure
+        let words = []
+
+        this.state.srts.map(segment => {
+          words = [...words, ...segment.words]
+        })
+
+        this.state.highlightElementCoverage.map((isWordHighlighted, i) => {
+
+          if(isWordHighlighted) { //holds boolean indicating whether the word has been highlighted or not
+            words.splice(i, 1) //If highlighted then remove from words array
+          }
+          
+        })
+
+        words.map((wordObj, i) => {
+          
+          if(!revisedSegments[wordObj.speakerNo -1]) { //If segment doesn't exist push segment along with first word
+            
+            revisedSegments.push({
+              words: [wordObj]
+            })
+          } else { //If segment does exist then push worObj into it's word array
+            revisedSegments[wordObj.speakerNo - 1].words.push(wordObj)
+          }
+        })
+
+        console.log(revisedSegments)
+
+        this.setState({ srts: revisedSegments, inputText: '', showInput: false })
+
+      })
+      //END Handle deletion of highlighted words
 	}
+
+  calculateInitialWordHighlightedPositions () {
+
+    let initialHighlightedPositions = []
+
+    this.state.srts.map(segment => {
+      segment.words.map(wordObj => {
+        initialHighlightedPositions.push({ left: 0, top: (wordObj.speakerNo * 40) - 40 }) 
+      })
+    })
+
+    this.setState({ wordHighlightedPositions: initialHighlightedPositions })
+  }
+
+  calculateDiarizationChanges (revisedWordHighlightedPositions) {
+    //revisedWordHighlightedPositions is an array of objects with left and top properties
+    //signifying position for each word
+
+    let words = []
+    let revisedSegments = []
+
+    this.state.srts.map(segment => {
+      words = [...words, ...segment.words]
+    })
+
+    //Loop through each word end position
+    //Minus 40 from top property then divide by 40 (there is 40px gap between rows - TODO - set this 'globally')and round down the result to nearest integer
+    //Then add the result to the current speaker number
+
+    revisedWordHighlightedPositions.map((wordPosition, i) => {
+      //Push updated speakerNo to wordObj of words array
+
+      let newSpeakerNo = Math.round((wordPosition.top / 40) + 1)
+      //Assign newSpeakerNo to each wordObj of words array
+      words[i].speakerNo = newSpeakerNo
+      //console.log(`Speaker for word ${words[i].word} now set to`, Math.round((wordPosition.top / 40) + 1, `Original speaker: ${words[i].speakerNo}`))
+    })
+
+    //console.log(words)
+
+    //Restructure the revised segments
+    //Set state of revised segments here
+
+    words.map((wordObj, i) => {
+          
+      if(!revisedSegments[wordObj.speakerNo -1]) { //If segment doesn't exist push segment along with first word
+        
+        revisedSegments.push({
+          words: [wordObj]
+        })
+      } else { //If segment does exist then push worObj into it's word array
+        revisedSegments[wordObj.speakerNo - 1].words.push(wordObj)
+      }
+    })
+
+    console.log(revisedSegments)
+
+    this.setState({ srts: revisedSegments }, () => {
+      this.calculateInitialWordHighlightedPositions() //Snap to grid i.e when speakerNo changes
+    //for a word set the state and then calculate new positions based on new state
+    })
+    
+
+  }
 
 	componentDidMount () {
 
@@ -231,13 +415,23 @@ class App extends Component {
 		this.dragAndDropAnItem()	
 		//End drag drop multiple items
 
+    this.calculateInitialWordHighlightedPositions()
+
 	}
 
 	render() {
 
-		let words = this.state.words
+		let srts = this.state.srts
     let input
+    let words = []
 
+    //Create a single array of words from srts data structure
+    //So the words indices mirror the childNodes indices (used to work out which elements have been highlighted)
+    srts.map(segment => {
+      words = [...words, ...segment.words]
+    })
+
+    //Conditionally display inputBox that allows user to insert word(s)
     input = (index) => {
       if(this.state.showInput && index == this.state.indexOfWordBeforeInsert) { //show inputBox insert 
       return (
@@ -259,21 +453,10 @@ class App extends Component {
 					ref={word => this.word = word}
 					style={Object.assign({}, { top: `${this.state.y}px` }, styles.word)} >
 				</div>
-				<pre><code>{JSON.stringify(this.state.isWordHighlighted, null, 4)}</code></pre>
-
-
 				<div
 					className='balls-container'
 					ref={ballsContainer => this.ballsContainer = ballsContainer} >
-					<div
-						ref={ballOne => this.ballOne = ballOne}
-						className='ball'
-						style={Object.assign({}, this.state.wordHighlightedPosition)} >
-					</div>
-					<div 
-						className='ball'
-						style={styles.ballTwo} >
-					</div>
+
 					<svg
 						ref={rangeHighlighter => this.rangeHighlighter = rangeHighlighter} 
 						style={Object.assign({}, this.state.rangeHighlighted, styles.rangeHighlighter)}>
@@ -282,21 +465,26 @@ class App extends Component {
             className='words-container'
             ref={wordsContainer => this.wordsContainer = wordsContainer}
             style={styles.wordsContainer}>
-            {words.map((word, i) => (<div
-                                      key={i}
-                                      ref={wordSpan => this.wordSpan = wordSpan}
-                                      style={styles.wordContainer}> 
-                                      <span    
-                                      className='word'
-                                      style={Object.assign({}, styles.word, this.state.highlightElementCoverage[i]? this.state.wordHighlightedPosition : {})}
-                                      >{word} </span>
-                                      <span
-                                        onClick={() => this.handleDisplayInputBox(i)}
-                                        style={Object.assign({}, styles.addText)}>+</span>
-                                        {input(i)}
-                                     </div>))}
-            
-
+            {
+							words.map((wordObj, i) => 
+								(<div
+									key={i}
+									ref={wordSpan => this.wordSpan = wordSpan}
+                  
+									style={styles.wordContainer}> 
+									<span    
+										className='word'
+                    data-speaker-number={wordObj.speakerNo}
+									  style={Object.assign({}, styles.word, { top: `${(wordObj.speakerNo * 40) - 40}px` },this.state.highlightElementCoverage[i]? this.state.wordHighlightedPositions[i] : {})}
+									>{wordObj.word}
+									</span>
+									<span
+										onClick={() => this.handleDisplayInputBox(i)}
+                    data-speaker-number={wordObj.speakerNo}
+										style={Object.assign({}, { top: `${(wordObj.speakerNo * 40) - 40}px` }, styles.addText)}>+</span>
+										{input(i)}
+								</div>))
+						}
 
           </div>
 				</div>
@@ -337,14 +525,16 @@ const styles = {
     position: 'absolute',
     top: '400px',
     left: '20px',
-    userSelect: 'none'
+    userSelect: 'none',
+		width: '100%'
   },
   wordContainer: {
     display: 'inline'
   },
   addText: {
     backgroundColor: 'peru',
-    margin: '0px 18px 0px 18px'
+    margin: '0px 18px 0px 18px',
+		position: 'relative'
   },
   inputBox: {
     backgroundColor: 'seagreen',
