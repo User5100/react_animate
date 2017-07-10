@@ -23,41 +23,50 @@ class App extends Component {
 			y: 100,
 			isWordHighlighted: false,
 			rangeHighlighted: { left: 0, top: 0, width: 0, height: 0 },
-			wordHighlightedPositions: [],
 			isHighlighterEnabled: true,
       position: null,
 			srts: [
 				{
-					words: [{ word: 'Hi',
-									speakerNo: 1,
-									timestamp: 1 }, 
-									{ word: 'my',
+					words: [{ id: 1,
+										word: 'Hi',
+										speakerNo: 1,
+										timestamp: 1 }, 
+									{ id: 2,
+										word: 'my',
 										speakerNo: 1,
 										timestamp: 2 }, 
-									{ word: 'name',
+									{ id: 3,
+										word: 'name',
 										speakerNo: 1,
 										timestamp: 3 }, 
-									{ word: 'is',
+									{ id: 4,
+										word: 'is',
 										speakerNo: 1,
 										timestamp: 4 },
-									{ word: 'Thai',
+									{ id: 5,
+										word: 'Thai',
 										speakerNo: 1,
 										timestamp: 5 }]
 				},
 				{
-					words: [{ word: 'Good',
-									speakerNo: 2,
-									timestamp: 6 }, 
-									{ word: 'morning',
+					words: [{ id: 6,
+										word: 'Good',
+										speakerNo: 2,
+										timestamp: 6 }, 
+									{ id: 7,
+										word: 'morning',
 										speakerNo: 2,
 										timestamp: 7 }, 
-									{ word: 'how',
+									{ id: 8,
+										word: 'how',
 										speakerNo: 2,
 										timestamp: 8 }, 
-									{ word: 'are',
+									{ id: 9,
+										word: 'are',
 										speakerNo: 2,
 										timestamp: 9 },
-									{ word: 'you?',
+									{ id: 10,
+										word: 'you?',
 										speakerNo: 2,
 										timestamp: 10 }]
 				}
@@ -67,6 +76,8 @@ class App extends Component {
       indexOfWordBeforeInsert: 0,
       highlightElementCoverage: []
 		}
+
+		this.wordHighlightedPositions = []
 
 		this.isWordCoveredByHighlightedRange = this.isWordCoveredByHighlightedRange.bind(this)
 		this.getMousePosition = this.getMousePosition.bind(this)
@@ -231,14 +242,14 @@ class App extends Component {
 								return this.getMousePosition(mouseEvent, left, top)
 						  })
 							.subscribe(position => {
-								console.log('Handle dragging of highlighted word', this.state.wordHighlightedPositions)
+								console.log('Handle dragging of highlighted word', this.wordHighlightedPositions)
 
                 this.setState({ position: { top: position.x, 
                                             left: position.y - this.state.rangeHighlighted.top } })
 
                 let revisedWordHighlightedPositions
 
-                revisedWordHighlightedPositions = this.state.wordHighlightedPositions.map((prevWordPosition, i) => {
+                revisedWordHighlightedPositions = this.wordHighlightedPositions.map((prevWordPosition, i) => {
 
                   if(this.state.highlightElementCoverage[i]) {
                     return { left: prevWordPosition.left + position.x - this.state.rangeHighlighted.left, 
@@ -259,9 +270,11 @@ class App extends Component {
 											top: position.y, 
 											width: prevState.rangeHighlighted.width, 
 											height: prevState.rangeHighlighted.height	 
-										},
-										wordHighlightedPositions: revisedWordHighlightedPositions
+										}
+										
 									}
+								}, () => {
+									this.wordHighlightedPositions = revisedWordHighlightedPositions
 								})
 							})
       //END Handle dragging of highlighted word
@@ -323,7 +336,8 @@ class App extends Component {
       })
     })
 
-    this.setState({ wordHighlightedPositions: initialHighlightedPositions })
+    //this.setState({ wordHighlightedPositions: initialHighlightedPositions })
+    this.wordHighlightedPositions = initialHighlightedPositions
   }
 
   calculateDiarizationChanges (revisedWordHighlightedPositions) {
@@ -431,6 +445,8 @@ class App extends Component {
       words = [...words, ...segment.words]
     })
 
+
+
     //Conditionally display inputBox that allows user to insert word(s)
     input = (index) => {
       if(this.state.showInput && index == this.state.indexOfWordBeforeInsert) { //show inputBox insert 
@@ -468,14 +484,15 @@ class App extends Component {
             {
 							words.map((wordObj, i) => 
 								(<div
-									key={i}
+									key={wordObj.word}
 									ref={wordSpan => this.wordSpan = wordSpan}
                   
 									style={styles.wordContainer}> 
 									<span    
 										className='word'
+										key={wordObj.word}
                     data-speaker-number={wordObj.speakerNo}
-									  style={Object.assign({}, styles.word, { top: `${(wordObj.speakerNo * 40) - 40}px` },this.state.highlightElementCoverage[i]? this.state.wordHighlightedPositions[i] : {})}
+									  style={Object.assign({}, styles.word, { top: `${(wordObj.speakerNo * 40) - 40}px` },this.state.highlightElementCoverage[i]? {} : {})}
 									>{wordObj.word}
 									</span>
 									<span
