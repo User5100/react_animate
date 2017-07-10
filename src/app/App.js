@@ -351,6 +351,22 @@ class App extends Component {
       words = [...words, ...segment.words]
     })
 
+    //Sort words - Fixes words listed out of order
+    words = words
+						 .sort((currWordObj, nextWordObj) => {
+					    	if(currWordObj.id < nextWordObj.id) {
+					    		return -1
+					    	}
+
+					    	if(currWordObj.id > nextWordObj.id) {
+					    		return 1
+					    	}
+
+					    	return 0
+					    })
+		
+
+    
     //Loop through each word end position
     //Minus 40 from top property then divide by 40 (there is 40px gap between rows - TODO - set this 'globally')and round down the result to nearest integer
     //Then add the result to the current speaker number
@@ -380,6 +396,50 @@ class App extends Component {
         revisedSegments[wordObj.speakerNo - 1].words.push(wordObj)
       }
     })
+
+    
+
+
+    revisedSegments.map(segment => {
+    	
+    	let words
+    	words = segment.words
+    								 .sort((currWordObj, nextWordObj) => {
+									    	if(currWordObj.id < nextWordObj.id) {
+									    		return -1
+									    	}
+
+									    	if(currWordObj.id > nextWordObj.id) {
+									    		return 1
+									    	}
+
+									    	return 0
+									    })
+    	console.log(words)
+    	return Object.assign({}, segment, { words: words })
+		})
+
+
+		Promise.resolve(revisedSegments.map(segment => {
+    	
+    	let words
+    	words = segment.words
+    								 .sort((currWordObj, nextWordObj) => {
+									    	if(currWordObj.id < nextWordObj.id) {
+									    		return -1
+									    	}
+
+									    	if(currWordObj.id > nextWordObj.id) {
+									    		return 1
+									    	}
+
+									    	return 0
+									    })
+    	console.log(words)
+    	return Object.assign({}, segment, { words })
+		})).then((data) => console.log('Hello', data))
+
+
 
     console.log(revisedSegments)
 
