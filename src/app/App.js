@@ -139,10 +139,15 @@ class App extends Component {
 
                 console.log(revisedSegments)
 
-                this.setState({ srts: revisedSegments, inputText: '', showInput: false })
+                this.setState({ srts: revisedSegments, 
+																inputText: '', 
+																showInput: false,
+																isHighlighterEnabled: true,
+																rangeHighlighted: { left: 0, top: 0, width: 0, height: 0 } 
+															})
              })    
     }
-  }
+  } //END handleTextInputOnEnter
 
 	isWordCoveredByHighlightedRange(child) {
 		//TODO - Calculate area covered by rangeHighlighted
@@ -298,14 +303,14 @@ class App extends Component {
           words = [...words, ...segment.words]
         })
 
-        this.state.highlightElementCoverage.map((isWordHighlighted, i) => {
+				console.log(this.state.highlightElementCoverage)
 
-          if(isWordHighlighted) { //holds boolean indicating whether the word has been highlighted or not
-            words.splice(i, 1) //If highlighted then remove from words array
-          }
+				words = words.filter((wordObj, i) => {
+					if(this.state.highlightElementCoverage[i]) { //holds boolean indicating whether the word has been highlighted or not
+						return 0
+					} else return 1
+				})
           
-        })
-
         words.map((wordObj, i) => {
           
           if(!revisedSegments[wordObj.speakerNo -1]) { //If segment doesn't exist push segment along with first word
@@ -320,7 +325,12 @@ class App extends Component {
 
         console.log(revisedSegments)
 
-        this.setState({ srts: revisedSegments, inputText: '', showInput: false })
+        this.setState({ srts: revisedSegments, 
+												inputText: '', 
+												showInput: false,
+											 	rangeHighlighted: { left: 0, top: 0, width: 0, height: 0 },
+												isHighlighterEnabled: true 
+											})
 
       })
       //END Handle deletion of highlighted words
@@ -346,27 +356,24 @@ class App extends Component {
 
     let words = []
     let revisedSegments = []
+		let previousSpeakerNo
 
     this.state.srts.map(segment => {
       words = [...words, ...segment.words]
     })
 
     //Sort words - Fixes words listed out of order
-    words = words
-						 .sort((currWordObj, nextWordObj) => {
-					    	if(currWordObj.id < nextWordObj.id) {
-					    		return -1
-					    	}
+    words = words.sort((currWordObj, nextWordObj) => {
+			if(currWordObj.id < nextWordObj.id) {
+				return -1
+			}
 
-					    	if(currWordObj.id > nextWordObj.id) {
-					    		return 1
-					    	}
-
-					    	return 0
-					    })
+			if(currWordObj.id > nextWordObj.id) {
+				return 1
+			}
+			return 0
+		})
 		
-
-    
     //Loop through each word end position
     //Minus 40 from top property then divide by 40 (there is 40px gap between rows - TODO - set this 'globally')and round down the result to nearest integer
     //Then add the result to the current speaker number
@@ -380,75 +387,45 @@ class App extends Component {
       //console.log(`Speaker for word ${words[i].word} now set to`, Math.round((wordPosition.top / 40) + 1, `Original speaker: ${words[i].speakerNo}`))
     })
 
-    //console.log(words)
-
-    //Restructure the revised segments
-    //Set state of revised segments here
-
+		//console.log('words: ', words) //Confirmation words are correctly ordered by ID
+		//***CREATE REVISED SEGMENTS ****//
+		//TODO - revisedSegment not returning the correct result
+		//The speaker no is 'always changing' since the promise isn't being returned in time
+		//for the next iteration
+		//However wihout the promise the resulting words and segments do not return in the correct
+		//order.
+		//TODO - Explore the use of recursive functions to avoid race condition
     words.map((wordObj, i) => {
-          
-      if(!revisedSegments[wordObj.speakerNo -1]) { //If segment doesn't exist push segment along with first word
-        
-        revisedSegments.push({
+			
+			if(previousSpeakerNo === wordObj.speakerNo) { //then push to existing words in current segment
+				console.log('speaker HAS NOT changed Index: ', i, 'Word: ', wordObj.word)
+
+
+				Promise.resolve(revisedSegments[wordObj.speakerNo - 1].words.push(wordObj))
+							 .then(() => previousSpeakerNo = wordObj.speakerNo)
+			} else { //speakerNo has changed so create a new segment or it's the first element
+				console.log('speaker number changed Index: ', i, 'Word: ', wordObj.word)
+
+				Promise.resolve(revisedSegments.push({
           words: [wordObj]
-        })
-      } else { //If segment does exist then push worObj into it's word array
-        revisedSegments[wordObj.speakerNo - 1].words.push(wordObj)
-      }
+        }))
+				.then(() => previousSpeakerNo = wordObj.speakerNo)
+			}
+			//console.log('Create segment order test: ', i, revisedSegments)
+
+			//Track state of the speaker to perform the above IF condition
+			//work out if the current speaker no is same as previous speaker no
+			//if so push element to words array of current segment
+			//if not create a new segment with a words array and push the object there 
+			//previousSpeakerNo = wordObj.speakerNo
     })
 
-    
-
-
-    revisedSegments.map(segment => {
-    	
-    	let words
-    	words = segment.words
-    								 .sort((currWordObj, nextWordObj) => {
-									    	if(currWordObj.id < nextWordObj.id) {
-									    		return -1
-									    	}
-
-									    	if(currWordObj.id > nextWordObj.id) {
-									    		return 1
-									    	}
-
-									    	return 0
-									    })
-    	console.log(words)
-    	return Object.assign({}, segment, { words: words })
-		})
-
-
-		Promise.resolve(revisedSegments.map(segment => {
-    	
-    	let words
-    	words = segment.words
-    								 .sort((currWordObj, nextWordObj) => {
-									    	if(currWordObj.id < nextWordObj.id) {
-									    		return -1
-									    	}
-
-									    	if(currWordObj.id > nextWordObj.id) {
-									    		return 1
-									    	}
-
-									    	return 0
-									    })
-    	console.log(words)
-    	return Object.assign({}, segment, { words })
-		})).then((data) => console.log('Hello', data))
-
-
-
-    console.log(revisedSegments)
+		console.log('revised: ', revisedSegments)
 
     this.setState({ srts: revisedSegments }, () => {
       this.calculateInitialWordHighlightedPositions() //Snap to grid i.e when speakerNo changes
     //for a word set the state and then calculate new positions based on new state
     })
-    
-
   }
 
 	componentDidMount () {
