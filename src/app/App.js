@@ -20,6 +20,7 @@ class App extends Component {
 		super()
 
 		this.state = {
+			isDisplayWord: true, //TODO Needs to be an array of booleans?
 			y: 100,
 			isWordHighlighted: false,
 			rangeHighlighted: { left: 0, top: 0, width: 0, height: 0 },
@@ -87,6 +88,7 @@ class App extends Component {
     this.handleDisplayInputBox = this.handleDisplayInputBox.bind(this)
     this.calculateInitialWordHighlightedPositions = this.calculateInitialWordHighlightedPositions.bind(this)
     this.calculateDiarizationChanges = this.calculateDiarizationChanges.bind(this)
+		this.handleClickToEditWord = this.handleClickToEditWord.bind(this)
 	}
 
   handleTextInputChange(event) {
@@ -227,9 +229,9 @@ class App extends Component {
 																				return this.getMousePosition(mouseEvent, left, top)
 																		 })
 
-		//Disable highlighter if no activity for 300ms
-		this.endHighlight$.debounceTime(1000)
-											.subscribe(() => this.setState({ isHighlighterEnabled: false }))
+		//Disable highlighter if no activity for 30ms
+		this.endHighlight$.subscribe(() => this.setState({ isHighlighterEnabled: false, 
+																											 rangeHighlighted: { left: 0, top: 0, width: 0, height: 0 } }))
 
 		this.startHighlight$.combineLatest(this.endHighlight$, (start, end) => {
 
@@ -302,7 +304,6 @@ class App extends Component {
 											width: prevState.rangeHighlighted.width, 
 											height: prevState.rangeHighlighted.height	 
 										}
-										
 									}
 								}, () => {
 									this.wordHighlightedPositions = revisedWordHighlightedPositions
@@ -452,45 +453,23 @@ class App extends Component {
 
 		console.log('revised: ', revisedSegments)
 
-    this.setState({ srts: revisedSegments }, () => {
+    this.setState({ srts: revisedSegments
+		              }, () => {
       this.calculateInitialWordHighlightedPositions() //Snap to grid i.e when speakerNo changes
     //for a word set the state and then calculate new positions based on new state
     })
   } //END calculateDiarizationChanges
+
+	handleClickToEditWord (wordObject) {
+		console.log(wordObject)
+		this.setState({ isDisplayWord: false }) //set display to edit word
+	}
 
 	componentDidMount () {
 
 		this.move$ = Observable.fromEvent(document, 'mousemove')
 
 		this.mouseUp$ = Observable.fromEvent(document, 'mouseup')
-
-		this.drag$ = Observable.fromEvent(this.word, 'mousedown')
-													 .switchMap(() => this.move$.takeUntil(this.mouseUp$))
-													 .map(mouseEvent => {
-													 		console.log(mouseEvent)
-													 		let { movementY } = mouseEvent	
-															return movementY
-													 })
-													 
-		this.dragUp$ = this.drag$.filter(direction => direction > 0)
-													 	 .mapTo(50)
-
-		this.dragDown$ = this.drag$.filter(direction => direction < 0)
-													 	 	 .mapTo(-50)
-
-		//Drag up or down snap to grid 20px (20px per row)											 	 	 
-		Observable.merge(this.dragUp$, this.dragDown$)
-							.scan(function(acc, curr) {
-								return acc + curr
-							}, 0)
-							.startWith(0)
-							.do(debug => console.log(debug))
-							.filter(positionY => positionY > 0 && positionY < 300)
-							.subscribe(y => {
-								this.setState({ y: y })
-							})
-
-		//End Snap to grid
 
 		//Start drag drop multiple items
 		this.dragAndDropAnItem()	
@@ -505,6 +484,8 @@ class App extends Component {
 		let srts = this.state.srts
     let input
     let words = []
+		let edit
+		let displayWordOrEditWord
 
     //Create a single array of words from srts data structure
     //So the words indices mirror the childNodes indices (used to work out which elements have been highlighted)
@@ -529,6 +510,42 @@ class App extends Component {
         )
       }
     }
+
+		//Conditionally display editBox that allows user to edit existing word
+		edit = (index) => {
+			if(this.state.showEdit && index == this.state.indexOfWordToBeEdited) { //show inputBox insert 
+      return (
+        <input
+          className='input-box'
+          style={styles.inputBox}
+          ref={input => this.inputEdit = input}
+          value={this.state.inputTextEdit}
+          onChange={this.handleTextInputChange}
+          onKeyPress={this.handleTextInputOnEnter}
+          type='text' /> 
+        )
+      }
+		}
+
+
+		//Conditional logic for editing or display a word
+		displayWordOrEditWord = (wordObj) => {
+			if(this.state.isDisplayWord) {
+				return (
+					<span    
+						className='word'
+						key={wordObj.id}
+						data-speaker-number={wordObj.speakerNo}
+						style={Object.assign({}, styles.word, { top: `${(wordObj.speakerNo * 40) - 40}px` })}
+						onClick={() => this.handleClickToEditWord(wordObj)}
+					>{wordObj.word}
+					</span> 
+				)
+			} else {
+				return <input value={wordObj.word} />
+			}
+		}
+		
     
 		return(
 			<div>
@@ -555,13 +572,7 @@ class App extends Component {
 									ref={wordSpan => this.wordSpan = wordSpan}
                   
 									style={styles.wordContainer}> 
-									<span    
-										className='word'
-										key={wordObj.id}
-                    data-speaker-number={wordObj.speakerNo}
-									  style={Object.assign({}, styles.word, { top: `${(wordObj.speakerNo * 40) - 40}px` },this.state.highlightElementCoverage[i]? {} : {})}
-									>{wordObj.word}
-									</span>
+									{displayWordOrEditWord(wordObj)}
 									<span
 										onClick={() => this.handleDisplayInputBox(i)}
                     data-speaker-number={wordObj.speakerNo}
