@@ -108,16 +108,20 @@ class App extends Component {
 
   handleDisplayInputBox(index) {
     
-    this.setState({ showInputForNewWord: true,
-										isDisplayWord: true, //hide edit input box if it is displayed
-										indexOfWordBeforeInsert: index,
-										rangeHighlighted: { left: 0, top: 0, width: 0, height: 0 },
-										isHighlighterEnabled: true, }, () => {
-      //Callback that automatically sets the focus on input
-      //so user can type right away wihtout needing to click
-      //on input box
-      this.input.focus()
-    })
+    if(this.state.rangeHighlighted.left == 0) {
+	    this.setState({ showInputForNewWord: true,
+											isDisplayWord: true, //hide edit input box if it is displayed
+											indexOfWordBeforeInsert: index,
+											rangeHighlighted: { left: 0, top: 0, width: 0, height: 0 },
+											isHighlighterEnabled: true, }, () => {
+	      //Callback that automatically sets the focus on input
+	      //so user can type right away wihtout needing to click
+	      //on input box
+	      this.input.focus()
+	    })
+	  } else {
+	  	console.log('Handle drag instead of display input box to insert word');
+	  }
   }
 
   handleTextInputOnEnter(event) {
@@ -526,8 +530,10 @@ class App extends Component {
 
 	handleClickToEditWord (wordObject, index) {
 		
-		console.log(wordObject, 'index: ', index)
-		this.setState({ isDisplayWord: false, //set display to edit word
+		console.log(this.state.rangeHighlighted)
+
+		if(this.state.rangeHighlighted.left == 0) {
+			this.setState({ isDisplayWord: false, //set display to edit word
 										showInputForNewWord: false, //Hide insert word inputBox if it happens to be displayed
 										inputEditText: wordObject.word, //set inputBox value to the word clicked,
 										indexOfWordToBeEdited: index,
@@ -536,6 +542,10 @@ class App extends Component {
 								 }, () => {
 									 this.inputEdit.focus() //Automatically focus on input edit box if user clicks on existing word to edit it
 								 }) 
+		} else {
+			console.log('Handle a drag instead of edit word - line 542')
+		}
+		
 	}
 
 	componentDidMount () {
@@ -569,12 +579,12 @@ class App extends Component {
 
 
     //Conditionally display inputBox that allows user to insert word(s)
-    input = (index) => {
+    input = (wordObj, index) => {
       if(this.state.showInputForNewWord && index == this.state.indexOfWordBeforeInsert) { //show inputBox insert 
       return (
         <input
           className='input-box'
-          style={styles.inputBox}
+          style={Object.assign({}, styles.inputBox, { top: `${(wordObj.speakerNo * 40) - 40}px` })}
           ref={input => this.input = input}
           value={this.state.inputText}
           onChange={this.handleTextInputChange}
@@ -590,7 +600,7 @@ class App extends Component {
       return (
         <input
           className='input-box'
-          style={styles.inputBox}
+          style={Object.assign({}, styles.inputBox, { top: `${(wordObj.speakerNo * 40) - 40}px` })}
           ref={input => this.inputEdit = input}
           value={this.state.inputEditText}
           onChange={this.handleInputEditWord}
@@ -660,7 +670,7 @@ class App extends Component {
 										onClick={() => this.handleDisplayInputBox(i)}
                     data-speaker-number={wordObj.speakerNo}
 										style={Object.assign({}, { top: `${(wordObj.speakerNo * 40) - 40}px` }, styles.addText)}>+</div>
-										{input(i)}
+										{input(wordObj, i)}
 								</div>))
 						}
 
@@ -714,7 +724,8 @@ const styles = {
 		borderRadius: '4px',
 		fontSize: '22px',
 		maxWidth: 'auto',
-		padding: '8px'
+		padding: '8px',
+		position: 'relative'
   },
 	word: {
 		backgroundColor: 'seagreen',
